@@ -1,4 +1,4 @@
-# Creates a systemd unit file
+# Creates a systemd dropin file
 #
 # @api public
 #
@@ -27,15 +27,14 @@
 #
 #   * Mutually exclusive with both ``$source`` and ``$content``
 #
-define systemd::unit_file(
-  Enum['present', 'absent', 'file'] $ensure  = 'present',
-  Stdlib::Absolutepath              $path    = '/etc/systemd/system',
-  Optional[String]                  $content = undef,
-  Optional[String]                  $source  = undef,
-  Optional[Stdlib::Absolutepath]    $target  = undef,
+define systemd::dropin_file(
+  Systemd::Unit                  $unit,
+  Enum['present', 'absent']      $ensure  = 'present',
+  Stdlib::Absolutepath           $path    = '/etc/systemd/system',
+  Optional[String]               $content = undef,
+  Optional[String]               $source  = undef,
+  Optional[Stdlib::Absolutepath] $target  = undef,
 ) {
-  include ::systemd
-
   assert_type(Systemd::Unit, $name)
 
   if $target {
@@ -47,7 +46,8 @@ define systemd::unit_file(
     }
   }
 
-  file { "${path}/${name}":
+  realize File["${unit}"] ->
+  file { "${path}/${unit}/${name}":
     ensure  => $_ensure,
     content => $content,
     source  => $source,
@@ -56,18 +56,5 @@ define systemd::unit_file(
     group   => 'root',
     mode    => '0444',
     notify  => Class['systemd::systemctl::daemon_reload'],
-  }
-
-  # Create a virtual resource for a drop-in directory. This resource will be
-  # realized in a ::systemd:dropin_file resource.
-  $directory_ensure = $ensure ? {
-    'absent' => 'absent',
-    default  => 'directory',
-  }
-  @file { "${name}":
-    ensure => $directory_ensure,
-    path   => "${path}/${name}",
-    owner  => 'root',
-    group  => 'root',
   }
 }
